@@ -1,5 +1,5 @@
 require('dotenv').config();
-const Database = require('better-sqlite3');
+const initSqlJs = require('sql.js');
 const path = require('path');
 const fs = require('fs-extra');
 
@@ -8,13 +8,111 @@ const resolvedPath = path.resolve(dbPath);
 
 fs.ensureDirSync(path.dirname(resolvedPath));
 
-const db = new Database(resolvedPath);
+// The underlying sql.js Database instance (set during initDatabase)
+let sqlDb = null;
+// Track whether we are inside a transaction so saveToFile() is deferred
+let inTransaction = false;
 
-// Enable WAL mode for better performance
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+// Persist the in-memory database to disk after every write outside a transaction
+function saveToFile() {
+  if (!inTransaction && sqlDb) {
+    const data = sqlDb.export();
+    fs.writeFileSync(resolvedPath, Buffer.from(data));
+  }
+}
 
-function initializeDatabase() {
+// Convert sql.js QueryExecResult[] to an array of plain objects
+function rowsToObjects(result) {
+  if (!result || result.length === 0) return [];
+  const { columns, values } = result[0];
+  return values.map((row) => {
+    const obj = {};
+    columns.forEach((col, i) => { obj[col] = row[i]; });
+    return obj;
+  });
+}
+
+// better-sqlite3-compatible Statement wrapper
+class Statement {
+  constructor(sql) {
+    this._sql = sql;
+  }
+
+  // Returns all rows as plain objects
+  all(...params) {
+    const args = params.length > 0 ? params : undefined;
+    const result = sqlDb.exec(this._sql, args);
+    return rowsToObjects(result);
+  }
+
+  // Returns the first row or undefined
+  get(...params) {
+    const rows = this.all(...params);
+    return rows.length > 0 ? rows[0] : undefined;
+  }
+
+  // Executes a write statement and returns { lastInsertRowid, changes }
+  run(...params) {
+    const args = params.length > 0 ? params : undefined;
+    sqlDb.run(this._sql, args);
+
+    const lastIdResult = sqlDb.exec('SELECT last_insert_rowid()');
+    const lastInsertRowid = lastIdResult.length > 0 ? lastIdResult[0].values[0][0] : 0;
+
+    const changesResult = sqlDb.exec('SELECT changes()');
+    const changes = changesResult.length > 0 ? changesResult[0].values[0][0] : 0;
+
+    saveToFile();
+    return { lastInsertRowid, changes };
+  }
+}
+
+// better-sqlite3-compatible Database wrapper exported to all controllers/services
+const db = {
+  // Execute one or more SQL statements (no parameters; used for DDL)
+  exec(sql) {
+    sqlDb.exec(sql);
+    saveToFile();
+  },
+
+  // Set a PRAGMA (best-effort; WAL mode is silently ignored for in-memory db)
+  pragma(setting) {
+    try {
+      sqlDb.run(`PRAGMA ${setting}`);
+    } catch (_e) {
+      // ignore unsupported pragma errors
+    }
+  },
+
+  // Return a Statement wrapper for the given SQL
+  prepare(sql) {
+    return new Statement(sql);
+  },
+
+  // Return a callable that wraps fn in a BEGIN/COMMIT transaction
+  transaction(fn) {
+    return (...args) => {
+      sqlDb.run('BEGIN');
+      inTransaction = true;
+      try {
+        const result = fn(...args);
+        sqlDb.run('COMMIT');
+        inTransaction = false;
+        saveToFile();
+        return result;
+      } catch (err) {
+        sqlDb.run('ROLLBACK');
+        inTransaction = false;
+        throw err;
+      }
+    };
+  },
+};
+
+// ── Schema & seed helpers ──────────────────────────────────────────────────
+
+// Creates database tables if they do not already exist (DDL only, no data)
+function createSchema() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS products (
       plu INTEGER PRIMARY KEY,
@@ -63,12 +161,10 @@ function initializeDatabase() {
       FOREIGN KEY (scale_id) REFERENCES scales(id)
     );
   `);
-
-  seedScales();
-  seedProducts();
 }
 
 function seedScales() {
+  // No-op if scales already exist (safe to call on every startup)
   const count = db.prepare('SELECT COUNT(*) as cnt FROM scales').get();
   if (count.cnt > 0) return;
 
@@ -94,6 +190,7 @@ function seedScales() {
 }
 
 function seedProducts() {
+  // No-op if products already exist (safe to call on every startup)
   const count = db.prepare('SELECT COUNT(*) as cnt FROM products').get();
   if (count.cnt > 0) return;
 
@@ -181,6 +278,31 @@ function seedProducts() {
   insertMany(products);
 }
 
-initializeDatabase();
+// ── Async initialiser called from app.js before the server starts ──────────
+
+async function initDatabase() {
+  // Resolve path to the sql.js WASM file shipped inside the npm package
+  const sqlJsDistDir = path.dirname(require.resolve('sql.js'));
+  const SQL = await initSqlJs({
+    locateFile: (file) => path.join(sqlJsDistDir, file),
+  });
+
+  if (fs.existsSync(resolvedPath)) {
+    const fileBuffer = fs.readFileSync(resolvedPath);
+    sqlDb = new SQL.Database(fileBuffer);
+  } else {
+    sqlDb = new SQL.Database();
+  }
+
+  // Enable foreign-key enforcement (WAL is skipped – sql.js persists via export())
+  db.pragma('foreign_keys = ON');
+
+  createSchema();
+  seedScales();
+  seedProducts();
+}
+
+// Attach the async initialiser as a property so app.js can call db.initDatabase()
+db.initDatabase = initDatabase;
 
 module.exports = db;

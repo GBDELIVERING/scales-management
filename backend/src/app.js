@@ -10,8 +10,8 @@ const syncRoutes = require('./routes/sync');
 const priceHistoryRoutes = require('./routes/priceHistory');
 const errorHandler = require('./middleware/errorHandler');
 
-// Initialize database
-require('./models/database');
+// Initialize database then start server
+const db = require('./models/database');
 
 const app = express();
 const PORT = process.env.PORT || 9999;
@@ -59,8 +59,15 @@ if (fs.existsSync(frontendBuild)) {
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+db.initDatabase()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Failed to initialize database:', err);
+    process.exit(1);
+  });
 
 module.exports = app;
