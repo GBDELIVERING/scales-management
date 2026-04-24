@@ -20,9 +20,20 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Apply rate limiting to all API routes
-const apiLimiter = rateLimit({
+// Apply rate limiting globally (covers both API and static file serving)
+const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+  skip: (req) => req.path.startsWith('/static/'), // skip hashed asset files
+});
+app.use(globalLimiter);
+
+// Stricter limiter for API mutation routes
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
   max: 500,
   standardHeaders: true,
   legacyHeaders: false,

@@ -34,8 +34,17 @@ const validateScale = [
     .trim()
     .notEmpty()
     .withMessage('IP address is required')
-    .matches(/^(\d{1,3}\.){3}\d{1,3}$/)
-    .withMessage('Invalid IP address format'),
+    .custom((value) => {
+      const parts = value.split('.');
+      if (parts.length !== 4) throw new Error('Invalid IP address format');
+      for (const part of parts) {
+        const num = parseInt(part, 10);
+        if (isNaN(num) || num < 0 || num > 255 || String(num) !== part) {
+          throw new Error('Each octet must be a number between 0 and 255');
+        }
+      }
+      return true;
+    }),
   handleValidationErrors,
 ];
 
@@ -44,8 +53,17 @@ const validateScaleUpdate = [
   body('location').optional().trim().notEmpty(),
   body('ip_address')
     .optional()
-    .matches(/^(\d{1,3}\.){3}\d{1,3}$/)
-    .withMessage('Invalid IP address format'),
+    .custom((value) => {
+      const parts = value.split('.');
+      if (parts.length !== 4) throw new Error('Invalid IP address format');
+      for (const part of parts) {
+        const num = parseInt(part, 10);
+        if (isNaN(num) || num < 0 || num > 255 || String(num) !== part) {
+          throw new Error('Each octet must be a number between 0 and 255');
+        }
+      }
+      return true;
+    }),
   handleValidationErrors,
 ];
 
