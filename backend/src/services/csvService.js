@@ -29,11 +29,14 @@ function parseCSV(fileContent) {
       const isHeader = isNaN(parseInt(firstLine.split(';')[0]));
       const dataLines = isHeader ? lines.slice(1) : lines;
 
+      // Column positions in Bizerba format:
+      // 0=Row, 1=PLU, 2=Description, 3=(empty), 4=Price, 5=(empty), 6=W/P,
+      // 7=(empty), 8=ItemGroup, 9=ItemGroup, 10=Sell-by, 11=(empty), 12=(empty),
+      // 13=Barcode, ...
       const products = [];
       for (const line of dataLines) {
         if (!line.trim()) continue;
         const cols = line.split(';');
-        // Format: Row;PLU;Description;;Price;;W/P;;ItemGroup;;Sell-by;;Ingredients;Allergenes...
         const plu = parseInt(cols[1]);
         if (!plu || isNaN(plu)) continue;
 
@@ -42,8 +45,6 @@ function parseCSV(fileContent) {
         const weight_or_piece = cols[6] === 'P' ? 'P' : 'W';
         const item_group = parseInt(cols[8]) || 1;
         const sell_by_days = parseInt(cols[10]) || null;
-        const ingredients = cols[13] || null;
-        const allergenes = cols[14] || null;
         const barcode = cols[13] || null;
 
         products.push({
@@ -53,9 +54,9 @@ function parseCSV(fileContent) {
           weight_or_piece,
           item_group,
           sell_by_days,
-          ingredients: cols[12] || null,
-          allergenes: cols[13] || null,
-          barcode: cols[13] || null,
+          ingredients: null,
+          allergenes: null,
+          barcode,
         });
       }
 

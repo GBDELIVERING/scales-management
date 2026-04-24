@@ -43,7 +43,7 @@ async function copyToNetworkDrive(csvContent, networkDrive, filename) {
 
   let targetPath;
   if (isWindows && networkDrive) {
-    targetPath = path.join(networkDrive + '\\', filename);
+    targetPath = path.join(networkDrive, filename);
   } else {
     // On Linux simulate the network drive under a local directory
     const driveLetter = networkDrive ? networkDrive.replace(':', '') : 'unknown';
