@@ -9,7 +9,7 @@ function generateBizerbaCSV(products) {
     const barcode = p.barcode || '0201';
     const ingredients = p.ingredients || '';
     const allergenes = p.allergenes || '';
-    return `${row};${p.plu};${p.description};0;${p.price};0;${p.weight_or_piece};;${p.item_group || 1};${p.item_group || 1};${sellBy};;;${barcode};;;;;;;;;;;null;null;0;0;0;0`;
+    return `${row};${p.plu};${p.description};0;${p.price};0;${p.weight_or_piece};;${p.item_group || 1};${p.item_group || 1};${sellBy};;${ingredients};${barcode};${allergenes};;;;;;;;;;null;null;0;0;0;0`;
   });
 
   return [header, ...rows].join('\r\n');
@@ -31,8 +31,8 @@ function parseCSV(fileContent) {
 
       // Column positions in Bizerba format:
       // 0=Row, 1=PLU, 2=Description, 3=(empty), 4=Price, 5=(empty), 6=W/P,
-      // 7=(empty), 8=ItemGroup, 9=ItemGroup, 10=Sell-by, 11=(empty), 12=(empty),
-      // 13=Barcode, ...
+      // 7=(empty), 8=ItemGroup, 9=ItemGroup, 10=Sell-by, 11=(empty),
+      // 12=Ingredients, 13=Barcode(Allergenes field), 14=Allergenes, ...
       const products = [];
       for (const line of dataLines) {
         if (!line.trim()) continue;
@@ -45,7 +45,9 @@ function parseCSV(fileContent) {
         const weight_or_piece = cols[6] === 'P' ? 'P' : 'W';
         const item_group = parseInt(cols[8]) || 1;
         const sell_by_days = parseInt(cols[10]) || null;
+        const ingredients = cols[12] && cols[12] !== 'null' ? cols[12] : null;
         const barcode = cols[13] || null;
+        const allergenes = cols[14] && cols[14] !== 'null' ? cols[14] : null;
 
         products.push({
           plu,
@@ -54,8 +56,8 @@ function parseCSV(fileContent) {
           weight_or_piece,
           item_group,
           sell_by_days,
-          ingredients: null,
-          allergenes: null,
+          ingredients,
+          allergenes,
           barcode,
         });
       }
