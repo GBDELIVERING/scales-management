@@ -13,8 +13,8 @@ const validateProduct = [
   body('description').trim().notEmpty().withMessage('Description is required'),
   body('price').isInt({ min: 0 }).withMessage('Price must be a non-negative integer'),
   body('weight_or_piece').isIn(['W', 'P']).withMessage("weight_or_piece must be 'W' or 'P'"),
-  body('item_group').optional().isInt({ min: 1 }),
-  body('sell_by_days').optional().isInt({ min: 0 }),
+  body('item_group').optional({ nullable: true }).isInt({ min: 1 }),
+  body('sell_by_days').optional({ nullable: true }).isInt({ min: 0 }),
   handleValidationErrors,
 ];
 
@@ -22,8 +22,8 @@ const validateProductUpdate = [
   body('description').optional().trim().notEmpty().withMessage('Description cannot be empty'),
   body('price').optional().isInt({ min: 0 }).withMessage('Price must be a non-negative integer'),
   body('weight_or_piece').optional().isIn(['W', 'P']),
-  body('item_group').optional().isInt({ min: 1 }),
-  body('sell_by_days').optional().isInt({ min: 0 }),
+  body('item_group').optional({ nullable: true }).isInt({ min: 1 }),
+  body('sell_by_days').optional({ nullable: true }).isInt({ min: 0 }),
   handleValidationErrors,
 ];
 
