@@ -1,0 +1,43 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  background-color: #f0f4f8;
+  color: #1a2940;
+}
+
+:root {
+  --primary: #003366;
+  --primary-light: #1a5276;
+  --secondary: #008080;
+  --secondary-light: #00a0a0;
+  --bg: #f0f4f8;
+  --surface: #ffffff;
+  --error: #c0392b;
+  --success: #1e8449;
+  --warning: #d4ac0d;
+  --text-primary: #1a2940;
+  --text-secondary: #5d6d7e;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
